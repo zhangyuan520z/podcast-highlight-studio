@@ -69,7 +69,8 @@ VITE_LLM_MODEL=gpt-4o-mini
 
 **音频转写（v6）**
 - 浏览器内 transformers.js 本地 Whisper 推理，三档模型：极速 whisper-tiny（约 40MB）、平衡 whisper-base（约 80MB）、精准 whisper-small（约 245MB）
-- 支持中文 / 英文 / 自动检测；音频在本机解码重采样到 16k 单声道，全程不上传
+- 支持中文 / 英文 / 自动检测；音频在主线程解码重采样到 16k 单声道，全程不上传
+- 推理在独立 Web Worker（`src/workers/transcribe.worker.js`）执行，不阻塞主线程，长音频转写时页面仍可操作；转写中可一键「停止转写」
 - 极速档模型已随项目内置在 `public/models`，同源加载、断网也能转写；平衡 / 精准档首次从国内镜像 hf-mirror 下载，之后缓存可离线
 - ONNX 运行时（wasm）随项目本地加载，不依赖任何 CDN；转写产出的 SRT 直接进字幕区，无缝衔接后续金句识别
 
@@ -111,7 +112,7 @@ podcast-highlight-studio/
 │  ├─ App.jsx                  # 状态中枢：素材 / 参数 / 识别 / 选中 / 导出
 │  ├─ lib/
 │  │  ├─ timecode.js           # 时间码 ↔ 秒，两种格式互转
-│  │  ├─ asr.js                # 浏览器本地 Whisper 转写：模型加载、音频解码、SRT 生成
+│  │  ├─ asr.js                # 转写编排：音频解码、Worker 通信、停止、SRT 生成
 │  │  ├─ subtitle.js           # SRT / VTT / 纯文本解析，分块给模型
 │  │  ├─ highlights.js         # 模型输出清洗归一化 + 本地模拟引擎
 │  │  ├─ prompts.js            # v1 / v2 / v3 / v4 四代 Prompt
@@ -120,6 +121,8 @@ podcast-highlight-studio/
 │  │  ├─ calibrator.js         # 基于画像的幂等即时校准
 │  │  ├─ context.js            # 取片段前后相邻字幕，支撑上下文展开
 │  │  └─ exporter.js           # CSV / 纯文本清单 / 剪贴板
+│  ├─ workers/
+│  │  └─ transcribe.worker.js  # 独立线程加载模型与 ONNX 推理，不卡主线程
 │  ├─ components/
 │  │  ├─ TopBar.jsx
 │  │  ├─ SourcePanel.jsx       # 左栏：素材、音频、参数、识别按钮
