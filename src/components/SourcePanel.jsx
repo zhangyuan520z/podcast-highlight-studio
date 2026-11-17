@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react'
 import { App as AntApp, Button, Input, Slider } from 'antd'
 import { humanDuration } from '../lib/timecode.js'
 import { SPEECH_RATES } from '../lib/subtitle.js'
+import { ASR_MODELS, ASR_LANGUAGES } from '../lib/asr.js'
 
 const STYLES = [
   { key: '通吃', desc: '信息增量与情绪钩子各占一半' },
@@ -36,6 +37,15 @@ export default function SourcePanel({
   onSpeechRate,
   realDurationText,
   onRealDurationText,
+  asrModel,
+  onAsrModel,
+  asrLanguage,
+  onAsrLanguage,
+  transcribing,
+  asrStage,
+  asrProgress,
+  asrNote,
+  onTranscribe,
   onLoadDemo,
   onClear,
   onAnalyze,
@@ -82,8 +92,8 @@ export default function SourcePanel({
     if (!file) return
     try {
       if (audio?.url) URL.revokeObjectURL(audio.url)
-      onAudio({ url: URL.createObjectURL(file), name: file.name, size: file.size })
-      message.success('音频已挂载，点片段即可试听')
+      onAudio({ url: URL.createObjectURL(file), name: file.name, size: file.size, file })
+      message.success('音频已挂载，可试听，也可一键转成字幕')
     } catch (e) {
       message.error('音频挂载失败')
     }
@@ -257,6 +267,74 @@ export default function SourcePanel({
             <circle cx="16.5" cy="16" r="2.5" stroke={audio ? '#4FBFAD' : '#828D93'} strokeWidth="1.6" />
           </svg>
         </div>
+
+        {audio && (
+          <div className="asr-panel">
+            <div className="asr-head">
+              <span className="asr-title">没有字幕？本地转写</span>
+              <span className="asr-badge">免费 · 可离线</span>
+            </div>
+
+            <div className="asr-row">
+              <span className="asr-label">模型</span>
+              <div className="asr-chips">
+                {ASR_MODELS.map((m) => (
+                  <button
+                    key={m.id}
+                    className={`asr-chip${asrModel === m.id ? ' active' : ''}`}
+                    title={`${m.size} · ${m.note}`}
+                    disabled={transcribing}
+                    onClick={() => onAsrModel(m.id)}
+                  >
+                    {m.label}
+                    <i>{m.size}</i>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="asr-row">
+              <span className="asr-label">语言</span>
+              <div className="seg asr-seg">
+                {ASR_LANGUAGES.map((l) => (
+                  <button
+                    key={l.label}
+                    aria-pressed={asrLanguage === l.key}
+                    disabled={transcribing}
+                    onClick={() => onAsrLanguage(l.key)}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Button block className="asr-btn" loading={transcribing} onClick={onTranscribe}>
+              {transcribing ? '转写中…' : '音频转字幕（本地 Whisper）'}
+            </Button>
+
+            {transcribing && (
+              <div className="asr-progress">
+                <div className="asr-progress-head">
+                  <span>{asrNote || '准备中…'}</span>
+                  {asrStage === 'model' && <span className="mono">{Math.round(asrProgress)}%</span>}
+                </div>
+                <div className="meter-bar">
+                  <div
+                    className="meter-fill"
+                    style={{
+                      width: asrStage === 'model' ? `${asrProgress}%` : '35%',
+                      animation: asrStage !== 'model' ? 'asr-indeterminate 1.1s ease-in-out infinite' : undefined,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            <p className="asr-tip">
+              首次用某档模型会下载对应文件，之后离线可用；转写结果带时间戳，自动填入字幕区。
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ---------- 参数 ---------- */}

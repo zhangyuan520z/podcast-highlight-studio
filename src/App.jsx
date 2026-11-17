@@ -7,6 +7,7 @@ import { buildPlainList, copyText, downloadCsv } from './lib/exporter.js'
 import { humanDuration, secToStamp, stampToSec } from './lib/timecode.js'
 import { loadFeedback, resetFeedback, recordFeedback, recordBatch, buildProfile } from './lib/feedback.js'
 import { calibrate } from './lib/calibrator.js'
+import { transcribeAudio, DEFAULT_ASR_MODEL } from './lib/asr.js'
 import { DEMO_SRT, DEMO_TITLE } from './data/demoSubtitle.js'
 
 import TopBar from './components/TopBar.jsx'
@@ -43,6 +44,14 @@ export default function App() {
   // 纯文本模式：语速（内容单位/秒）与手动填写的真实总时长文本
   const [speechRate, setSpeechRate] = useState(DEFAULT_CHARS_PER_SEC)
   const [realDurationText, setRealDurationText] = useState('')
+
+  // 音频转写（本地 Whisper）：模型档位、语言、转写阶段与进度
+  const [asrModel, setAsrModel] = useState(DEFAULT_ASR_MODEL)
+  const [asrLanguage, setAsrLanguage] = useState('chinese')
+  const [transcribing, setTranscribing] = useState(false)
+  const [asrStage, setAsrStage] = useState(null)
+  const [asrProgress, setAsrProgress] = useState(0)
+  const [asrNote, setAsrNote] = useState('')
 
   const [feedback, setFeedback] = useState(() => loadFeedback())
   const [profile, setProfile] = useState(() => buildProfile(loadFeedback()))
@@ -112,6 +121,55 @@ export default function App() {
     setAudio(null)
     setSpeechRate(DEFAULT_CHARS_PER_SEC)
     setRealDurationText('')
+    setTranscribing(false)
+    setAsrStage(null)
+    setAsrProgress(0)
+    setAsrNote('')
+  }
+
+  /* ---------------- 音频转字幕（本地 Whisper） ---------------- */
+
+  const handleTranscribe = async () => {
+    if (!audio?.file) {
+      message.warning('请先在音频区选择这期播客的音频文件')
+      return
+    }
+    if (transcribing) return
+    if (rawText.trim()) {
+      message.warning('字幕区已有内容。如需从音频重新转写，请先点「清空全部」')
+      return
+    }
+
+    setTranscribing(true)
+    setAsrProgress(0)
+    setAsrNote('')
+    try {
+      const result = await transcribeAudio(audio.file, {
+        modelId: asrModel,
+        language: asrLanguage,
+        onStage: (stage, note) => {
+          setAsrStage(stage)
+          setAsrNote(note)
+          if (stage === 'decode' || stage === 'recognize') setAsrProgress(0)
+          if (stage === 'done') setAsrProgress(100)
+        },
+        onProgress: (stage, pct, note) => {
+          setAsrStage(stage)
+          setAsrProgress(pct)
+          setAsrNote(note)
+        },
+      })
+      setRawText(result.srt)
+      setSourceName(audio.name.replace(/\.[^.]+$/, '') || '音频转写素材')
+      setHighlights([])
+      setSelectedId(null)
+      setMeta(null)
+      message.success(`转写完成：${result.chunks.length} 段、带时间戳，已生成字幕，可直接识别金句`)
+    } catch (err) {
+      message.error(`音频转写失败：${err?.message || err}`)
+    } finally {
+      setTranscribing(false)
+    }
   }
 
   /* ---------------- 识别 ---------------- */
@@ -420,6 +478,15 @@ export default function App() {
             onSpeechRate={setSpeechRate}
             realDurationText={realDurationText}
             onRealDurationText={setRealDurationText}
+            asrModel={asrModel}
+            onAsrModel={setAsrModel}
+            asrLanguage={asrLanguage}
+            onAsrLanguage={setAsrLanguage}
+            transcribing={transcribing}
+            asrStage={asrStage}
+            asrProgress={asrProgress}
+            asrNote={asrNote}
+            onTranscribe={handleTranscribe}
             onLoadDemo={loadDemo}
             onClear={clearAll}
             onAnalyze={handleAnalyze}
