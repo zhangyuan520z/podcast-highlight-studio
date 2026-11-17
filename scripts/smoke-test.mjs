@@ -18,6 +18,7 @@ import {
 import { calibrate } from '../src/lib/calibrator.js'
 import { buildMessages } from '../src/lib/prompts.js'
 import { neighborCues } from '../src/lib/context.js'
+import { chunksToSrt, ASR_MODELS, DEFAULT_ASR_MODEL } from '../src/lib/asr.js'
 import { DEMO_SRT } from '../src/data/demoSubtitle.js'
 
 let pass = 0
@@ -170,6 +171,23 @@ const nb = neighborCues(parsed.cues, local[0].start, local[0].end, 2, 2)
 check('能取到前后上下文', Array.isArray(nb.before) && Array.isArray(nb.after))
 check('区间内有字幕', nb.inside.length >= 1, `${nb.inside.length} 句`)
 check('空素材上下文不崩', Array.isArray(neighborCues([], 0, 10).inside))
+
+console.log('\n[13] 音频转写 SRT 生成')
+const asrChunks = [
+  { timestamp: [0, 3.2], text: ' 第一句金句 ' },
+  { timestamp: [3.2, 8.9], text: '第二句内容' },
+  { timestamp: [10, null], text: '缺结束时间' },
+]
+const srt = chunksToSrt(asrChunks)
+check('SRT 含序号与箭头', srt.includes('1\n') && srt.includes('-->'))
+check('SRT 用逗号毫秒', srt.includes('00:00:00,000 --> 00:00:03,200'))
+check('缺结束时间兜底 +2 秒', srt.includes('00:00:10,000 --> 00:00:12,000'))
+check('文本被 trim', srt.includes('第一句金句') && !srt.includes(' 第一句金句 '))
+check('提供 3 档模型', ASR_MODELS.length === 3)
+check('默认模型在列表中', ASR_MODELS.some((m) => m.id === DEFAULT_ASR_MODEL))
+const reparsed = parseSubtitle(srt)
+check('生成 SRT 可被重新解析', reparsed.mode === 'timestamp' && reparsed.cues.length === 3, `${reparsed.mode} · ${reparsed.cues.length} 句`)
+check('重解析时间戳精确', Math.abs(reparsed.cues[0].end - 3.2) < 0.01)
 
 console.log(`\n结果：${pass} 项通过，${fail} 项失败\n`)
 process.exit(fail === 0 ? 0 : 1)
