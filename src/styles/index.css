@@ -1760,6 +1760,11 @@ body::before {
 .asr-btn {
   margin-top: 2px;
 }
+.asr-btn-cancel {
+  margin-top: 2px;
+  font-weight: 600;
+  letter-spacing: .04em;
+}
 .asr-progress {
   margin-top: 10px;
 }

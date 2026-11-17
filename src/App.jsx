@@ -7,7 +7,7 @@ import { buildPlainList, copyText, downloadCsv } from './lib/exporter.js'
 import { humanDuration, secToStamp, stampToSec } from './lib/timecode.js'
 import { loadFeedback, resetFeedback, recordFeedback, recordBatch, buildProfile } from './lib/feedback.js'
 import { calibrate } from './lib/calibrator.js'
-import { transcribeAudio, DEFAULT_ASR_MODEL } from './lib/asr.js'
+import { transcribeAudio, cancelTranscribe, DEFAULT_ASR_MODEL } from './lib/asr.js'
 import { DEMO_SRT, DEMO_TITLE } from './data/demoSubtitle.js'
 
 import TopBar from './components/TopBar.jsx'
@@ -166,10 +166,22 @@ export default function App() {
       setMeta(null)
       message.success(`转写完成：${result.chunks.length} 段、带时间戳，已生成字幕，可直接识别金句`)
     } catch (err) {
-      message.error(`音频转写失败：${err?.message || err}`)
+      if (err?.message === '__CANCELLED__') {
+        message.info('已停止转写')
+      } else {
+        message.error(`音频转写失败：${err?.message || err}`)
+      }
     } finally {
       setTranscribing(false)
     }
+  }
+
+  const handleCancelTranscribe = () => {
+    cancelTranscribe()
+    setTranscribing(false)
+    setAsrStage(null)
+    setAsrProgress(0)
+    setAsrNote('')
   }
 
   /* ---------------- 识别 ---------------- */
@@ -487,6 +499,7 @@ export default function App() {
             asrProgress={asrProgress}
             asrNote={asrNote}
             onTranscribe={handleTranscribe}
+            onCancelTranscribe={handleCancelTranscribe}
             onLoadDemo={loadDemo}
             onClear={clearAll}
             onAnalyze={handleAnalyze}

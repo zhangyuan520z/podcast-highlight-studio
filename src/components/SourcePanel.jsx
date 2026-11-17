@@ -46,6 +46,7 @@ export default function SourcePanel({
   asrProgress,
   asrNote,
   onTranscribe,
+  onCancelTranscribe,
   onLoadDemo,
   onClear,
   onAnalyze,
@@ -309,9 +310,15 @@ export default function SourcePanel({
               </div>
             </div>
 
-            <Button block className="asr-btn" loading={transcribing} onClick={onTranscribe}>
-              {transcribing ? '转写中…' : '音频转字幕（本地 Whisper）'}
-            </Button>
+            {transcribing ? (
+              <Button block className="asr-btn asr-btn-cancel" danger onClick={onCancelTranscribe}>
+                停止转写
+              </Button>
+            ) : (
+              <Button block className="asr-btn" onClick={onTranscribe}>
+                音频转字幕（本地 Whisper）
+              </Button>
+            )}
 
             {transcribing && (
               <div className="asr-progress">
