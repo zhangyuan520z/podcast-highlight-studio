@@ -115,9 +115,31 @@ const arr = Array.isArray(raw)
 漏了后缀就 404。为了不让用户手打长 ID，把模型名改成**点选**：内置 6 个常用文本模型的完整 ID，
 点一下即填入并高亮选中态；同时把 API Key 旁误导性的 "sk-..." 改为「各平台格式不同，原样粘贴」。
 
+### 我（点选完整 ID 后仍失败，继续追问）
+
+> 我已经点选了完整 ID，Key 也确认是火山方舟的，DeepSeek 平台都能连，为什么火山方舟还是 404？
+
+### AI（不再靠状态码猜，直接读真实错误码）
+
+用当前 Key 直接请求火山接口，读取响应体里的 `error.code`；对两个模型各发一次，都返回同一个错误：
+
+```json
+{"error":{"code":"ModelNotOpen","message":"Your account ... has not activated the model ... Please activate the model service in the Ark Console."}}
+```
+
+### 结论与修复
+
+根因不是模型名、不是 Key、不是网络，而是**账号还没开通该模型**——火山方舟的模型必须先在控制台开通才能调用。
+据此把 404 处理改成解析 `error.code`，按官方错误码精准区分：
+- `ModelNotOpen` → 去「开通管理」页开通模型；
+- `ModelIDAccessDisabled` → 改用 ep-xxx 推理接入点；
+- `InvalidEndpointOrModel.NotFound` → 核对模型 ID。
+
 ### 结果
 
-点选完整 ID 后连接正常，浏览器实测无报错。整个排错过程没有引入新的依赖，全部在前端与 Prompt 层闭环。
+在火山方舟控制台「开通管理」页点「开通服务」后，回到软件点测试连接即可通过。
+这一轮的关键收获：**404 只是 HTTP 状态，真正原因要看响应体里的错误码，不能只凭状态码猜。**
+整个排错过程没有引入新依赖，全部在前端与 Prompt 层闭环。
 
 ---
 
