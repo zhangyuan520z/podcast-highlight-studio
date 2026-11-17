@@ -9,6 +9,54 @@ import { secToStamp } from './timecode.js'
 
 const TARGET_SR = 16000
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+/* ---------------- 健壮 fetch：剥离 Range + 网络失败自动重试 ---------------- */
+
+let nativeFetch = null
+function getNativeFetch() {
+  // 始终锚定第一次拿到的全局 fetch，避免切换模型时 env.fetch 被反复嵌套包装
+  if (!nativeFetch) nativeFetch = fetch.bind(globalThis)
+  return nativeFetch
+}
+
+function stripRange(init) {
+  const h = init.headers
+  const hasRange = h && (
+    (h instanceof Headers && h.has('Range')) ||
+    (typeof h === 'object' && !(h instanceof Headers) && 'Range' in h)
+  )
+  if (!hasRange) return init
+  let headers = h
+  if (h instanceof Headers) {
+    headers = new Headers(h)
+    headers.delete('Range')
+  } else {
+    headers = { ...h }
+    delete headers.Range
+  }
+  return { ...init, headers }
+}
+
+/**
+ * 只在「网络层失败」（fetch 直接 reject、拿不到任何响应，如 Failed to fetch）时重试，
+ * 带响应的 HTTP 状态码（404/500 等）不在这里重试。最多重试 2 次，指数退避。
+ */
+async function robustFetch(input, init = {}) {
+  const nf = getNativeFetch()
+  const finalInit = stripRange(init)
+  let lastError
+  for (let attempt = 0; attempt <= 2; attempt += 1) {
+    try {
+      return await nf(input, finalInit)
+    } catch (err) {
+      lastError = err
+      if (attempt < 2) await sleep(500 * 2 ** attempt)
+    }
+  }
+  throw lastError
+}
+
 /** 可选模型档位：首次下载体积越大，中文精度通常越好 */
 export const ASR_MODELS = [
   { id: 'Xenova/whisper-tiny', label: '极速', size: '约 40 MB', note: '速度最快，精度一般，适合快速试跑' },
@@ -47,27 +95,8 @@ async function getTranscriber(modelId, onProgress) {
   env.backends.onnx.wasm.numThreads = 1
 
   // hf-mirror 不支持带 Range 的跨域请求（预检失败），而 transformers 用 Range 取元数据：
-  // 覆盖 fetch，剥离 Range 头改普通 GET
-  const origFetch = (env.fetch || fetch).bind(globalThis)
-  env.fetch = (input, init = {}) => {
-    const h = init.headers
-    const hasRange = h && (
-      (h instanceof Headers && h.has('Range')) ||
-      (typeof h === 'object' && !(h instanceof Headers) && 'Range' in h)
-    )
-    if (hasRange) {
-      let headers = h
-      if (h instanceof Headers) {
-        headers = new Headers(h)
-        headers.delete('Range')
-      } else {
-        headers = { ...h }
-        delete headers.Range
-      }
-      return origFetch(input, { ...init, headers })
-    }
-    return origFetch(input, init)
-  }
+  // 统一走 robustFetch：剥离 Range 改普通 GET，并对网络抖动自动重试
+  env.fetch = robustFetch
 
   cachedTranscriber = await pipeline('automatic-speech-recognition', modelId, {
     device: 'wasm',
@@ -89,9 +118,16 @@ async function decodeAudioFile(file) {
   let decoded
   try {
     decoded = await decodeCtx.decodeAudioData(arrayBuffer)
-  } finally {
+  } catch (err) {
     decodeCtx.close()
+    const friendly = new Error(
+      `浏览器无法解码该音频（${file.name}）。请确认它是标准的 mp3 / wav / m4a（AAC），` +
+      `若是少见编码或损坏文件，可先用格式工厂 / 剪映转成标准 mp3 或 wav 再试。`
+    )
+    friendly.cause = err
+    throw friendly
   }
+  decodeCtx.close()
 
   const length = Math.ceil(decoded.duration * TARGET_SR)
   const offline = new OfflineAudioContext(1, length, TARGET_SR)
@@ -142,7 +178,19 @@ export async function transcribeAudio(file, options = {}) {
   const { samples, duration } = await decodeAudioFile(file)
 
   onStage?.('model', '准备识别模型…')
-  const transcriber = await getTranscriber(modelId, onProgress)
+  let transcriber
+  try {
+    transcriber = await getTranscriber(modelId, onProgress)
+  } catch (err) {
+    const msg = String(err?.message || err)
+    if (msg.includes('Failed to fetch') || msg.includes('network')) {
+      throw new Error(
+        '模型下载网络中断（已自动重试仍失败）。请检查网络后重新点转写；' +
+        '模型首次需联网下载，成功一次后即可离线使用。'
+      )
+    }
+    throw err
+  }
 
   onStage?.('recognize', '正在逐段识别…')
   const output = await transcriber(samples, {
