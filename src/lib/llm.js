@@ -86,10 +86,32 @@ export function extractJson(text) {
   throw new Error('JSON 括号没有闭合，可能是输出被截断')
 }
 
-function friendlyError(err, status) {
+function volcArk404(err) {
+  let code = ''
+  try {
+    code = JSON.parse(err?.body || '')?.error?.code || ''
+  } catch {
+    /* body 不是 JSON 时按通用情况处理 */
+  }
+  if (/ModelNotOpen/i.test(code)) {
+    return '火山方舟：账号还没开通这个模型（ModelNotOpen）。请到火山方舟控制台「开通管理」页开通后再试。'
+  }
+  if (/ModelIDAccessDisabled/i.test(code)) {
+    return '火山方舟：账号不允许直接用 Model ID 调用，请创建推理接入点并改用 ep-xxx 接入点 ID。'
+  }
+  if (/InvalidEndpointOrModel|NotFound/i.test(code)) {
+    return `火山方舟：模型 ID 不存在或无权访问（${code}），请点模型标签选完整 ID 或改用 ep-xxx。`
+  }
+  return `火山方舟 404：${(err?.body || '').slice(0, 120) || '模型或接入点异常'}`
+}
+
+function friendlyError(err, status, baseUrl) {
   if (status === 401 || status === 403) return 'API Key 无效或没有权限（401/403），请在「模型设置」里检查。'
   if (status === 402) return '账户余额不足（402），请登录对应服务商官网充值后再试。'
-  if (status === 404) return '接口地址或模型名不存在（404），请确认 Base URL 是否带 /v1、模型名是否拼写正确。'
+  if (status === 404) {
+    if (/volces\.com/i.test(baseUrl || '')) return volcArk404(err)
+    return '接口地址或模型名不存在（404），请确认 Base URL 是否带 /v1、模型名是否拼写正确。'
+  }
   if (status === 429) return '请求被限流（429），稍等几十秒再试，或调小「金句数量」。'
   if (status >= 500) return `模型服务端错误（${status}），稍后重试。`
   if (err?.name === 'AbortError') return '请求超时（95 秒），可能是网络太慢或上下文太长，可减少字幕或调小数量。'
@@ -122,6 +144,7 @@ async function callModel(config, messages) {
       const bodyText = await res.text().catch(() => '')
       const err = new Error(`HTTP ${res.status} ${bodyText.slice(0, 160)}`)
       err.status = res.status
+      err.body = bodyText
       throw err
     }
     const data = await res.json()
@@ -187,7 +210,7 @@ export async function runAnalysis({
       if (Array.isArray(arr)) collected.push(...arr)
       else failures.push(`第 ${i + 1} 段返回结构不是数组`)
     } catch (err) {
-      failures.push(friendlyError(err, err.status))
+      failures.push(friendlyError(err, err.status, config.baseUrl))
       // 单块失败不整体失败：其余块继续跑
     }
   }

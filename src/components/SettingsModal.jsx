@@ -132,7 +132,22 @@ export default function SettingsModal({ open, config, promptVersion, onPromptVer
         if (res.status === 402) throw new Error('账户余额不足（402），请登录官网充值后再试')
         if (res.status === 404) {
           if (/volces\.com/i.test(base)) {
-            throw new Error('火山方舟模型名不对（404）：预置接入点填 Model ID（如 deepseek-v4-1-flash-261017），自定义接入点填 ep-xxx')
+            let code = ''
+            try {
+              code = JSON.parse(body)?.error?.code || ''
+            } catch {
+              /* body 不是 JSON 时按通用情况处理 */
+            }
+            if (/ModelNotOpen/i.test(code)) {
+              throw new Error('火山方舟：你的账号还没开通这个模型（ModelNotOpen）。请登录火山方舟控制台「开通管理」页，开通该模型后再试。')
+            }
+            if (/ModelIDAccessDisabled/i.test(code)) {
+              throw new Error('火山方舟：你的账号不允许直接用 Model ID 调用。请在控制台创建推理接入点，把模型名改成 ep-xxx 接入点 ID。')
+            }
+            if (/InvalidEndpointOrModel|NotFound/i.test(code)) {
+              throw new Error(`火山方舟：模型 ID 不存在或无权访问（${code}）。请点下方模型标签选完整 ID，或改用 ep-xxx 接入点。`)
+            }
+            throw new Error(`火山方舟 404：${body.slice(0, 120) || '模型或接入点异常'}`)
           }
           throw new Error('接口地址或模型名不对（404）')
         }
