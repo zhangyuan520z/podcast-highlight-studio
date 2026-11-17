@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react'
-import { App as AntApp, Button, Slider } from 'antd'
+import { App as AntApp, Button, Input, Slider } from 'antd'
 import { humanDuration } from '../lib/timecode.js'
+import { SPEECH_RATES } from '../lib/subtitle.js'
 
 const STYLES = [
   { key: '通吃', desc: '信息增量与情绪钩子各占一半' },
@@ -31,6 +32,10 @@ export default function SourcePanel({
   onParams,
   audio,
   onAudio,
+  speechRate,
+  onSpeechRate,
+  realDurationText,
+  onRealDurationText,
   onLoadDemo,
   onClear,
   onAnalyze,
@@ -185,6 +190,45 @@ export default function SourcePanel({
               <div className="meter-fill" style={{ width: '100%' }} />
             </div>
             <span>{humanDuration(parsed.duration)}</span>
+          </div>
+        )}
+
+        {parsed.mode === 'plain' && parsed.cues.length > 0 && (
+          <div className="plain-estimate">
+            <div className="plain-estimate-head">
+              <span>纯文本时间轴</span>
+              <span className={parsed.estimated ? 'plain-tag' : 'plain-tag anchored'}>
+                {parsed.estimated ? '语速估算' : '已锚定真实时长'}
+              </span>
+            </div>
+
+            <div className="plain-row">
+              <span className="plain-label">语速</span>
+              <div className="seg plain-seg">
+                {SPEECH_RATES.map((r) => (
+                  <button
+                    key={r.key}
+                    aria-pressed={speechRate === r.charsPerSec}
+                    onClick={() => onSpeechRate(r.charsPerSec)}
+                  >
+                    {r.key}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="plain-row">
+              <span className="plain-label">实际时长</span>
+              <Input
+                value={realDurationText}
+                onChange={(e) => onRealDurationText(e.target.value)}
+                placeholder="如 32:00 或 1920 秒，留空则按语速估算"
+                size="small"
+              />
+            </div>
+            <p className="plain-note">
+              填真实音频总时长后按各句字数比例分配，时间轴比例与真实音频对齐；纯文本无真实时间戳，金句时间仍为相对位置。
+            </p>
           </div>
         )}
       </div>

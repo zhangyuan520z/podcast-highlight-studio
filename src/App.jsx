@@ -1,10 +1,10 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { App as AntApp } from 'antd'
-import { parseSubtitle } from './lib/subtitle.js'
+import { parseSubtitle, DEFAULT_CHARS_PER_SEC } from './lib/subtitle.js'
 import { analyzeLocally } from './lib/highlights.js'
 import { runAnalysis, loadConfig, saveConfig } from './lib/llm.js'
 import { buildPlainList, copyText, downloadCsv } from './lib/exporter.js'
-import { humanDuration, secToStamp } from './lib/timecode.js'
+import { humanDuration, secToStamp, stampToSec } from './lib/timecode.js'
 import { loadFeedback, resetFeedback, recordFeedback, recordBatch, buildProfile } from './lib/feedback.js'
 import { calibrate } from './lib/calibrator.js'
 import { DEMO_SRT, DEMO_TITLE } from './data/demoSubtitle.js'
@@ -40,6 +40,9 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [promptOpen, setPromptOpen] = useState(false)
   const [audio, setAudio] = useState(null)
+  // 纯文本模式：语速（内容单位/秒）与手动填写的真实总时长文本
+  const [speechRate, setSpeechRate] = useState(DEFAULT_CHARS_PER_SEC)
+  const [realDurationText, setRealDurationText] = useState('')
 
   const [feedback, setFeedback] = useState(() => loadFeedback())
   const [profile, setProfile] = useState(() => buildProfile(loadFeedback()))
@@ -77,7 +80,11 @@ export default function App() {
   const toggleExpand = (id) => setExpandedId((cur) => (cur === id ? null : id))
 
   const deferredText = useDeferredValue(rawText)
-  const parsed = useMemo(() => parseSubtitle(deferredText), [deferredText])
+  const parsed = useMemo(() => {
+    const parsedReal = stampToSec(realDurationText)
+    const realDuration = Number.isFinite(parsedReal) && parsedReal > 0 ? parsedReal : null
+    return parseSubtitle(deferredText, { charsPerSec: speechRate, realDuration })
+  }, [deferredText, speechRate, realDurationText])
   const selected = highlights.find((h) => h.id === selectedId) || null
 
   const audioRef = useRef(null)
@@ -103,6 +110,8 @@ export default function App() {
     setSelectedId(null)
     setMeta(null)
     setAudio(null)
+    setSpeechRate(DEFAULT_CHARS_PER_SEC)
+    setRealDurationText('')
   }
 
   /* ---------------- 识别 ---------------- */
@@ -407,6 +416,10 @@ export default function App() {
             onParams={setParams}
             audio={audio}
             onAudio={setAudio}
+            speechRate={speechRate}
+            onSpeechRate={setSpeechRate}
+            realDurationText={realDurationText}
+            onRealDurationText={setRealDurationText}
             onLoadDemo={loadDemo}
             onClear={clearAll}
             onAnalyze={handleAnalyze}

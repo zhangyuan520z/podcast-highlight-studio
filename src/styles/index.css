@@ -1609,3 +1609,53 @@ body::before {
   border-color: rgba(232, 168, 70, 0.55);
   background: rgba(232, 168, 70, 0.08);
 }
+
+/* 纯文本时间轴估算 / 锚定设置 */
+.plain-estimate {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.plain-estimate-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.plain-estimate-head > span:first-child {
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+.plain-tag {
+  font-size: 10px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+.plain-tag.anchored {
+  color: var(--teal);
+  border-color: rgba(79, 191, 173, 0.45);
+  background: rgba(79, 191, 173, 0.08);
+}
+.plain-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.plain-label {
+  flex: 0 0 48px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.plain-seg {
+  flex: 1;
+}
+.plain-note {
+  margin: 4px 0 0;
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.7;
+}
