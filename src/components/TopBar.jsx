@@ -27,7 +27,7 @@ export default function TopBar({
         <div>
           <h1 className="brand-title">
             金句时间轴
-            <span className="brand-version">v5.0</span>
+            <span className="brand-version">v6.0</span>
           </h1>
           <div className="brand-sub">播客高光剪辑台 · 识别 · 校对 · 导出</div>
         </div>

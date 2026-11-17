@@ -44,7 +44,8 @@ VITE_LLM_MODEL=gpt-4o-mini
 **输入**
 - 粘贴字幕文本，或上传 `.srt` / `.vtt` / `.txt`，也可以直接把文件拖进输入区
 - 自动识别时间码格式；没有时间码的纯文本按中文语速（约 4.6 字/秒）估算时间轴，并在界面明确标注"估算"
-- 可选挂载同一期节目的音频（mp3 / wav / m4a），只在本机播放，不上传
+- 只有音频、没有字幕：挂载 mp3 / wav / m4a 后一键「本地转写」，浏览器内跑 Whisper 直接生成带时间戳的 SRT，无需 Key、音频不离开本机
+- 音频也可只挂来试听，只在本机播放，不上传
 
 **识别**
 - OpenAI 兼容接口（OpenAI / DeepSeek / 通义 / 豆包方舟都能填）
@@ -65,6 +66,12 @@ VITE_LLM_MODEL=gpt-4o-mini
 - 下一轮分析时画像作为偏好注入 Prompt（v4），结果再经一次本地校准；用得越多越贴合本人的剪辑口味
 - 顶部「自我更新」抽屉可看学习轮次、正负例、标签亲和图，支持立即校准当前结果、一键清空学习数据
 - 反馈不足 2 条时自动退化为 v3，不注入空画像；所有数据只存在本机 localStorage，不外发
+
+**音频转写（v6）**
+- 浏览器内 transformers.js 本地 Whisper 推理，三档模型：极速 whisper-tiny（约 40MB）、平衡 whisper-base（约 80MB）、精准 whisper-small（约 245MB）
+- 支持中文 / 英文 / 自动检测；音频在本机解码重采样到 16k 单声道，全程不上传
+- 模型从国内镜像 hf-mirror 下载，首次后缓存可离线；ONNX 运行时随项目本地加载，不依赖任何 CDN
+- 转写产出的 SRT 直接进字幕区，无缝衔接后续金句识别
 
 **可用性：快速决策流**
 - 每段有保留 / 弃用 / 待定三种状态，弃用的片段整行变灰划线，导出和复制时自动排除
@@ -97,11 +104,14 @@ VITE_LLM_MODEL=gpt-4o-mini
 podcast-highlight-studio/
 ├─ index.html
 ├─ vite.config.js
+├─ public/
+│  └─ ort/                     # 本地 ONNX 运行时（mjs + wasm），不依赖 CDN
 ├─ src/
 │  ├─ main.jsx                 # antd 深色主题 + 中文语言包
 │  ├─ App.jsx                  # 状态中枢：素材 / 参数 / 识别 / 选中 / 导出
 │  ├─ lib/
 │  │  ├─ timecode.js           # 时间码 ↔ 秒，两种格式互转
+│  │  ├─ asr.js                # 浏览器本地 Whisper 转写：模型加载、音频解码、SRT 生成
 │  │  ├─ subtitle.js           # SRT / VTT / 纯文本解析，分块给模型
 │  │  ├─ highlights.js         # 模型输出清洗归一化 + 本地模拟引擎
 │  │  ├─ prompts.js            # v1 / v2 / v3 / v4 四代 Prompt
@@ -136,6 +146,7 @@ podcast-highlight-studio/
 React 18 + Vite 5 + Ant Design 5（深色主题）+ ECharts 5。无后端、无数据库、无路由。
 
 前端直接用 `fetch` 调 OpenAI 兼容的 `/chat/completions`，Key 存在 localStorage。
+音频转写用 @huggingface/transformers（transformers.js）+ onnxruntime-web，WASM 本地推理。
 
 ---
 
@@ -146,5 +157,6 @@ React 18 + Vite 5 + Ant Design 5（深色主题）+ ECharts 5。无后端、无�
    本工具没有后端，这是它作为纯前端 MVP 的固有限制。
 2. **纯文本字幕的时间轴是估算值。** 没有真实时间码就无法精确到帧，界面会标注；要精确请用 SRT。
 3. **本地模拟引擎不是大模型。** 它是关键词与结构规则打分，只能证明流程跑得通，不能代表真实识别质量。
-4. **音频只做试听。** 不做波形解码、不做自动切片导出，导出的是剪辑清单（CSV），实际切割交给剪映 / PR。
-5. **分块上限 8 块**（约 2.7 万字）。超长素材只会分析前 8 块，状态栏不提示截断细节，界面上以 meta 里的 `truncated` 字段标记。
+4. **不做自动视频切片。** 音频可本地转写与试听，但导出的是剪辑清单（CSV），实际音视频切割交给剪映 / PR。
+5. **极速档转写有精度局限。** whisper-tiny 体积小、可能出现错字或繁简混排，追求准确可在音频区换 base / small 档；首次需联网从镜像下载模型，之后缓存可离线。
+6. **分块上限 8 块**（约 2.7 万字）。超长素材只会分析前 8 块，状态栏不提示截断细节，界面上以 meta 里的 `truncated` 字段标记。
