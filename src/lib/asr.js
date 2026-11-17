@@ -3,7 +3,8 @@
  *
  * 在浏览器内用 transformers.js 跑 Whisper，全程本地推理：
  * 音频不离开本机、不需要 API Key、输出带时间戳的分段，再转成 SRT 走现有金句流程。
- * 模型首次从 hf-mirror 镜像下载，之后由浏览器缓存，可离线使用。
+ * 极速档（whisper-tiny）模型已随项目内置在 public/models，同源加载、断网也能转写；
+ * 更大的平衡 / 精准档首次从 hf-mirror 镜像下载，之后由浏览器缓存，可离线使用。
  */
 import { secToStamp } from './timecode.js'
 
@@ -59,9 +60,9 @@ async function robustFetch(input, init = {}) {
 
 /** 可选模型档位：首次下载体积越大，中文精度通常越好 */
 export const ASR_MODELS = [
-  { id: 'Xenova/whisper-tiny', label: '极速', size: '约 40 MB', note: '速度最快，精度一般，适合快速试跑' },
-  { id: 'Xenova/whisper-base', label: '平衡', size: '约 80 MB', note: '速度与精度均衡，日常推荐' },
-  { id: 'Xenova/whisper-small', label: '精准', size: '约 245 MB', note: '中文识别更准，首次下载较久' },
+  { id: 'Xenova/whisper-tiny', label: '极速', size: '约 40 MB', note: '模型已内置，断网也能用，速度最快', local: 'whisper-tiny' },
+  { id: 'Xenova/whisper-base', label: '平衡', size: '约 80 MB', note: '速度与精度均衡，首次需联网下载', local: null },
+  { id: 'Xenova/whisper-small', label: '精准', size: '约 245 MB', note: '中文识别更准，首次下载较久', local: null },
 ]
 
 export const DEFAULT_ASR_MODEL = ASR_MODELS[0].id
@@ -81,12 +82,21 @@ async function getTranscriber(modelId, onProgress) {
   if (cachedTranscriber && cachedModelId === modelId) return cachedTranscriber
 
   const { pipeline, env } = await import('@huggingface/transformers')
-  // 大陆直连 huggingface.co 会超时，统一走镜像
-  env.remoteHost = 'https://hf-mirror.com/'
+  const modelMeta = ASR_MODELS.find((m) => m.id === modelId)
+  const base = import.meta.env.BASE_URL || '/'
+
+  if (modelMeta?.local) {
+    // 内置离线模型：从本站 public/models 同源加载，无 CORS、断网也能转写
+    env.remoteHost = new URL(`${base}models/`, location.href).href
+    env.remotePathTemplate = '{model}/'
+  } else {
+    // 未内置的大模型：走镜像，首次需联网下载
+    env.remoteHost = 'https://hf-mirror.com/'
+    env.remotePathTemplate = '{model}/resolve/{revision}/'
+  }
   env.allowLocalModels = false
 
   // 本地 ONNX 运行时：不从 jsDelivr 加载（当前网络对 jsDelivr 不通）
-  const base = import.meta.env.BASE_URL || '/'
   env.backends.onnx.wasm.wasmPaths = {
     mjs: `${base}ort/ort-wasm-simd-threaded.asyncify.mjs`,
     wasm: `${base}ort/ort-wasm-simd-threaded.asyncify.wasm`,
@@ -94,7 +104,6 @@ async function getTranscriber(modelId, onProgress) {
   // 单线程：避免 Worker / SharedArrayBuffer 对跨域隔离头的依赖，ASR 场景足够快
   env.backends.onnx.wasm.numThreads = 1
 
-  // hf-mirror 不支持带 Range 的跨域请求（预检失败），而 transformers 用 Range 取元数据：
   // 统一走 robustFetch：剥离 Range 改普通 GET，并对网络抖动自动重试
   env.fetch = robustFetch
 
