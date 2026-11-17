@@ -1,7 +1,7 @@
 {
   "name": "podcast-highlight-studio",
   "private": true,
-  "version": "1.0.0",
+  "version": "5.0.0",
   "type": "module",
   "description": "AI 播客金句视频时间轴自动裁剪助手",
   "scripts": {

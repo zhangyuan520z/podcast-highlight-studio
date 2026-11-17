@@ -25,7 +25,10 @@ export default function TopBar({
           </svg>
         </span>
         <div>
-          <h1 className="brand-title">金句时间轴</h1>
+          <h1 className="brand-title">
+            金句时间轴
+            <span className="brand-version">v5.0</span>
+          </h1>
           <div className="brand-sub">播客高光剪辑台 · 识别 · 校对 · 导出</div>
         </div>
       </div>
