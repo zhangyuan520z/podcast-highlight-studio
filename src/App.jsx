@@ -165,6 +165,13 @@ export default function App() {
       setSelectedId(null)
       setMeta(null)
       message.success(`转写完成：${result.chunks.length} 段、带时间戳，已生成字幕，可直接识别金句`)
+      if (result.hasLatin) {
+        const words = Array.from(new Set(result.latinHits.map((h) => h.word))).slice(0, 8)
+        message.warning({
+          content: `检测到 ${result.latinHits.length} 处疑似拼音/外文（${words.join('、')}），模型对这些词不确定，建议在字幕区人工核对；换用平衡/精准档可减少此类情况`,
+          duration: 8,
+        })
+      }
     } catch (err) {
       if (err?.message === '__CANCELLED__') {
         message.info('已停止转写')
