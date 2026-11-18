@@ -73,6 +73,8 @@ VITE_LLM_MODEL=gpt-4o-mini
 - 推理在独立 Web Worker（`src/workers/transcribe.worker.js`）执行，不阻塞主线程，长音频转写时页面仍可操作；转写中可一键「停止转写」
 - 极速档模型已随项目内置在 `public/models`，同源加载、断网也能转写；平衡 / 精准档首次从国内镜像 hf-mirror 下载，之后缓存可离线
 - ONNX 运行时（wasm）随项目本地加载，不依赖任何 CDN；转写产出的 SRT 直接进字幕区，无缝衔接后续金句识别
+- 转写后自动做文本后处理（`src/lib/text-normalize.js`）：OpenCC 繁转简（Whisper 三档默认都输出繁体）、半角标点转全角、折叠多余空格；并检测疑似拼音/外文片段（连续拉丁字母），在结果中明确提示人工核对，不做无依据的硬转
+- 精度说明：极速档体积小、速度快，对生僻词、同音词仍可能出错（如「复利」误识别）；对准确度要求高时换用平衡 / 精准档，模型越大中文错字越少。模型识别层面的错字无法靠后处理确定性修复，需人工核对
 
 **可用性：快速决策流**
 - 每段有保留 / 弃用 / 待定三种状态，弃用的片段整行变灰划线，导出和复制时自动排除
@@ -113,6 +115,7 @@ podcast-highlight-studio/
 │  ├─ lib/
 │  │  ├─ timecode.js           # 时间码 ↔ 秒，两种格式互转
 │  │  ├─ asr.js                # 转写编排：音频解码、Worker 通信、停止、SRT 生成
+│  │  ├─ text-normalize.js     # 转写后处理：OpenCC 繁转简、标点规范、拼音检测
 │  │  ├─ subtitle.js           # SRT / VTT / 纯文本解析，分块给模型
 │  │  ├─ highlights.js         # 模型输出清洗归一化 + 本地模拟引擎
 │  │  ├─ prompts.js            # v1 / v2 / v3 / v4 四代 Prompt
