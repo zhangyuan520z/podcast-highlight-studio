@@ -59,6 +59,9 @@ export default function App() {
   const [evolveOpen, setEvolveOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
 
+  // 实际生效的 Prompt 版本：开启自我更新且有历史画像时用 v4，否则用所选版本
+  const effectivePromptVersion = selfEvolve && profile.learned ? 'v4' : promptVersion
+
   const pushFeedback = (type, payload = {}) => {
     const next = recordFeedback(feedback, type, payload)
     setFeedback(next)
@@ -170,6 +173,12 @@ export default function App() {
         message.warning({
           content: `检测到 ${result.latinHits.length} 处疑似拼音/外文（${words.join('、')}），模型对这些词不确定，建议在字幕区人工核对；换用平衡/精准档可减少此类情况`,
           duration: 8,
+        })
+      }
+      if (result.langMismatch?.suspected) {
+        message.warning({
+          content: `疑似语种误判：自动检测把这期音频当成了非中文（结果里汉字极少、英文占比 ${Math.round(result.langMismatch.latinRatio * 100)}%）。请清空后把语言手动切到「中文」再转写一次，中文播客不建议用自动检测。`,
+          duration: 12,
         })
       }
     } catch (err) {
@@ -651,7 +660,14 @@ export default function App() {
         onSave={handleSaveConfig}
       />
 
-      <PromptDrawer open={promptOpen} onClose={() => setPromptOpen(false)} activeVersion={promptVersion} />
+      <PromptDrawer
+        open={promptOpen}
+        onClose={() => setPromptOpen(false)}
+        activeVersion={effectivePromptVersion}
+        selectedVersion={promptVersion}
+        selfEvolve={selfEvolve}
+        hasLearned={Boolean(profile.learned)}
+      />
 
       <SelfEvolvePanel
         open={evolveOpen}
