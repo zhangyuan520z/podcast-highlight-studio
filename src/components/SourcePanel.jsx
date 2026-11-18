@@ -310,6 +310,12 @@ export default function SourcePanel({
               </div>
             </div>
 
+            {asrLanguage === null && !transcribing && (
+              <div className="asr-lang-hint">
+                自动检测在极速档或嘈杂/多人音频上可能把中文误判成其他语言。确定是中文播客时，建议直接选「中文」更稳。
+              </div>
+            )}
+
             {transcribing ? (
               <Button block className="asr-btn asr-btn-cancel" danger onClick={onCancelTranscribe}>
                 停止转写
