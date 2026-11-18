@@ -68,6 +68,7 @@ async function robustFetch(input, init = {}) {
 
 const MODEL_LOCAL = {
   'Xenova/whisper-tiny': 'whisper-tiny',
+  'Xenova/whisper-base': 'whisper-base',
 }
 
 let cachedModelId = null

@@ -6,8 +6,9 @@
  *
  * 推理在 Web Worker 独立线程执行（见 workers/transcribe.worker.js），
  * 长音频也不会卡住主线程；主线程只负责音频解码、重采样与 UI，并可随时终止转写。
- * 极速档（whisper-tiny）模型已随项目内置在 public/models，同源加载、断网也能转写；
- * 更大的平衡 / 精准档首次从 hf-mirror 镜像下载，之后由浏览器缓存，可离线使用。
+ * 极速档（whisper-tiny）与平衡档（whisper-base）模型已随项目内置在 public/models，
+ * 同源加载、断网也能转写；更大的精准档（whisper-small）首次从 hf-mirror 镜像下载，
+ * 之后由浏览器缓存，可离线使用。
  */
 import { secToStamp } from './timecode.js'
 
@@ -16,8 +17,8 @@ const TARGET_SR = 16000
 /** 可选模型档位：首次下载体积越大，中文精度通常越好 */
 export const ASR_MODELS = [
   { id: 'Xenova/whisper-tiny', label: '极速', size: '约 40 MB', note: '模型已内置，断网也能用，速度最快', local: 'whisper-tiny' },
-  { id: 'Xenova/whisper-base', label: '平衡', size: '约 80 MB', note: '速度与精度均衡，首次需联网下载', local: null },
-  { id: 'Xenova/whisper-small', label: '精准', size: '约 245 MB', note: '中文识别更准，首次下载较久', local: null },
+  { id: 'Xenova/whisper-base', label: '平衡', size: '约 80 MB', note: '模型已内置，断网也能用，速度与精度均衡', local: 'whisper-base' },
+  { id: 'Xenova/whisper-small', label: '精准', size: '约 245 MB', note: '中文识别更准，首次需联网下载', local: null },
 ]
 
 export const DEFAULT_ASR_MODEL = ASR_MODELS[0].id
