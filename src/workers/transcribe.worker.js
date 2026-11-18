@@ -8,6 +8,8 @@
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
+import { normalizeChunks } from '../lib/text-normalize.js'
+
 /* ---------------- 健壮 fetch：剥离 Range + 网络失败重试 ---------------- */
 
 let nativeFetch = null
@@ -112,10 +114,15 @@ async function run({ samples, modelId, language, base }) {
     return_timestamps: true,
   })
 
+  post('stage', { stage: 'polish', note: '正在繁转简与文本规范化…' })
+  const normalized = await normalizeChunks(output.chunks || [], { language })
+
   post('done', {
     result: {
-      chunks: output.chunks || [],
-      text: output.text || '',
+      chunks: normalized.chunks,
+      text: normalized.text || output.text || '',
+      latinHits: normalized.latinHits,
+      hasLatin: normalized.hasLatin,
     },
   })
 }

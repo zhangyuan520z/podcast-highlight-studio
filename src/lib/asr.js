@@ -172,5 +172,12 @@ export async function transcribeAudio(file, options = {}) {
   const chunks = (result.chunks || []).filter((c) => c.text && c.text.trim())
   const srt = chunksToSrt(chunks)
   onStage?.('done', `识别完成，共 ${chunks.length} 段`)
-  return { chunks, text: result.text, duration, srt }
+  return {
+    chunks,
+    text: result.text,
+    duration,
+    srt,
+    latinHits: result.latinHits || [],
+    hasLatin: Boolean(result.hasLatin),
+  }
 }
