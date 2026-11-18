@@ -179,5 +179,6 @@ export async function transcribeAudio(file, options = {}) {
     srt,
     latinHits: result.latinHits || [],
     hasLatin: Boolean(result.hasLatin),
+    langMismatch: result.langMismatch || { suspected: false },
   }
 }
