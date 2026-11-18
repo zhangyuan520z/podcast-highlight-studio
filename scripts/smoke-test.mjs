@@ -19,7 +19,7 @@ import { calibrate } from '../src/lib/calibrator.js'
 import { buildMessages } from '../src/lib/prompts.js'
 import { neighborCues } from '../src/lib/context.js'
 import { chunksToSrt, ASR_MODELS, DEFAULT_ASR_MODEL } from '../src/lib/asr.js'
-import { normalizeChunkText, normalizeChunks, findLatinSegments } from '../src/lib/text-normalize.js'
+import { normalizeChunkText, normalizeChunks, findLatinSegments, detectLanguageMismatch } from '../src/lib/text-normalize.js'
 import { DEMO_SRT } from '../src/data/demoSubtitle.js'
 
 let pass = 0
@@ -209,6 +209,14 @@ const normAll = await normalizeChunks(
 check('整份 chunks 转简体', normAll.chunks[0].text === '这个叫 tushu', normAll.chunks[0].text)
 check('汇总拼音/外文命中数', normAll.latinHits.length === 2 && normAll.hasLatin === true)
 check('空 chunks 不抛异常', (await normalizeChunks([], { language: 'chinese' })).chunks.length === 0)
+const mm1 = detectLanguageMismatch('We have been here for a few years. We have been here for a few years. We have been here.')
+check('全英文长文本判定语种误判', mm1.suspected === true && mm1.latinRatio > 0.9)
+const mm2 = detectLanguageMismatch('做内容最重要的不是技巧，是你能不能持续输出，很多人坚持了三个月就放弃了。')
+check('正常中文不判误判', mm2.suspected === false)
+const mm3 = detectLanguageMismatch('短文本')
+check('样本量不足不判断', mm3.suspected === false)
+const mm4 = detectLanguageMismatch('这个叫 tushu 管理系统，用 API 连接，需要部署 shujuku 服务做数据存储')
+check('中英混合不轻易判误判', mm4.suspected === false)
 
 console.log(`\n结果：${pass} 项通过，${fail} 项失败\n`)
 process.exit(fail === 0 ? 0 : 1)
