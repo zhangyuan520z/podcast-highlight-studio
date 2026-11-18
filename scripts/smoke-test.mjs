@@ -19,6 +19,7 @@ import { calibrate } from '../src/lib/calibrator.js'
 import { buildMessages } from '../src/lib/prompts.js'
 import { neighborCues } from '../src/lib/context.js'
 import { chunksToSrt, ASR_MODELS, DEFAULT_ASR_MODEL } from '../src/lib/asr.js'
+import { normalizeChunkText, normalizeChunks, findLatinSegments } from '../src/lib/text-normalize.js'
 import { DEMO_SRT } from '../src/data/demoSubtitle.js'
 
 let pass = 0
@@ -188,6 +189,26 @@ check('默认模型在列表中', ASR_MODELS.some((m) => m.id === DEFAULT_ASR_MO
 const reparsed = parseSubtitle(srt)
 check('生成 SRT 可被重新解析', reparsed.mode === 'timestamp' && reparsed.cues.length === 3, `${reparsed.mode} · ${reparsed.cues.length} 句`)
 check('重解析时间戳精确', Math.abs(reparsed.cues[0].end - 3.2) < 0.01)
+
+console.log('\n[14] 转写文本规范化（繁转简 / 标点 / 拼音检测）')
+const t1 = await normalizeChunkText('做內容最重要的不是技巧,是你能不能持續輸出。', { language: 'chinese' })
+check('繁体转简体', t1 === '做内容最重要的不是技巧，是你能不能持续输出。', t1)
+const t2 = await normalizeChunkText('真正的壁壘!經歷過嗎?', { language: 'chinese' })
+check('半角标点转全角', t2 === '真正的壁垒！经历过吗？', t2)
+const t3 = await normalizeChunkText('Hello, world? This is English.', { language: 'english' })
+check('英文模式不做中文转换', t3.includes('Hello, world?'), t3)
+check('数字小数点不被当句号', (await normalizeChunkText('版本是 3.14 没错', { language: 'chinese' })).includes('3.14'))
+check('拼音检测命中', JSON.stringify(findLatinSegments('叫 tushu 管理')) === '["tushu"]')
+const normAll = await normalizeChunks(
+  [
+    { timestamp: [0, 2], text: '這個叫 tushu' },
+    { timestamp: [2, 4], text: '介面用 API' },
+  ],
+  { language: 'chinese' },
+)
+check('整份 chunks 转简体', normAll.chunks[0].text === '这个叫 tushu', normAll.chunks[0].text)
+check('汇总拼音/外文命中数', normAll.latinHits.length === 2 && normAll.hasLatin === true)
+check('空 chunks 不抛异常', (await normalizeChunks([], { language: 'chinese' })).chunks.length === 0)
 
 console.log(`\n结果：${pass} 项通过，${fail} 项失败\n`)
 process.exit(fail === 0 ? 0 : 1)
