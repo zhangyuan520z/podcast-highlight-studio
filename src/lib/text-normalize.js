@@ -42,6 +42,21 @@ export function findLatinSegments(text) {
 }
 
 /**
+ * 语种误判检测：仅在「自动检测」（language 为 null）时调用。
+ * Whisper 小模型在嘈杂/多人音频上可能把中文误判成英文，导致整段输出英文。
+ * 若结果几乎全是拉丁字母、几乎没有汉字，且样本量足够，判定为疑似误判。
+ */
+export function detectLanguageMismatch(text) {
+  const source = String(text || '')
+  const han = (source.match(/[一-鿿]/g) || []).length
+  const latin = (source.match(/[A-Za-z]/g) || []).length
+  const total = han + latin
+  if (total < 40) return { suspected: false, han, latin, latinRatio: 0 }
+  const latinRatio = latin / total
+  return { suspected: latinRatio > 0.7, han, latin, latinRatio }
+}
+
+/**
  * 规范化单条片段文本。
  * @param {string} text 原始识别文本
  * @param {{language?: string|null}} options language 为 'english' 时不做中文处理
