@@ -1,6 +1,7 @@
 /**
  * Prompt 链留痕
- * 三代 Prompt 都真实保留在这里，运行时用的是 v3，界面里可以对比查看。
+ * 四代 Prompt 都真实保留在这里：默认运行时用 v3，开启自我更新且有历史画像时用 v4，
+ * 界面里可以对比查看、也可手动切回旧版本。
  */
 
 export const SYSTEM_PROMPT = [
@@ -68,7 +69,7 @@ export const PROMPT_V4 = (ctx) => {
   return ctx.profileText ? `${base}\n\n${ctx.profileText}` : base
 }
 
-/** 给界面展示用的三代对比元信息 */
+/** 给界面展示用的四代对比元信息 */
 export const PROMPT_VERSIONS = [
   {
     id: 'v1',
