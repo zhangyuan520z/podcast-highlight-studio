@@ -186,6 +186,18 @@ check('缺结束时间兜底 +2 秒', srt.includes('00:00:10,000 --> 00:00:12,00
 check('文本被 trim', srt.includes('第一句金句') && !srt.includes(' 第一句金句 '))
 check('提供 3 档模型', ASR_MODELS.length === 3)
 check('默认模型在列表中', ASR_MODELS.some((m) => m.id === DEFAULT_ASR_MODEL))
+check('极速与平衡档标记为内置', ASR_MODELS.filter((m)=>m.local).length === 2)
+check('精准档仍需在线下载', ASR_MODELS.find((m)=>m.label==='精准').local === null)
+// 校验内置模型的关键 onnx 文件确实存在
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+const here = path.dirname(fileURLToPath(import.meta.url))
+const modelRoot = path.join(here, '..', 'public', 'models', 'Xenova')
+for (const name of ['whisper-tiny', 'whisper-base']) {
+  const enc = path.join(modelRoot, name, 'onnx', 'encoder_model_quantized.onnx')
+  check(`内置 ${name} encoder 文件存在`, fs.existsSync(enc))
+}
 const reparsed = parseSubtitle(srt)
 check('生成 SRT 可被重新解析', reparsed.mode === 'timestamp' && reparsed.cues.length === 3, `${reparsed.mode} · ${reparsed.cues.length} 句`)
 check('重解析时间戳精确', Math.abs(reparsed.cues[0].end - 3.2) < 0.01)
